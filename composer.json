@@ -1,0 +1,22 @@
+{
+  "name": "jeekens/event",
+  "type": "library",
+  "version": "v1.0.0",
+  "keywords": [
+    "php",
+    "swoole",
+    "jeekens",
+    "event"
+  ],
+  "description": "jeekens event component",
+  "license": "Apache-2.0",
+  "require": {
+    "php": "^7.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "Jeekens\\Event\\": "src/"
+    }
+  },
+  "minimum-stability": "dev"
+}
