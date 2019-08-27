@@ -3,6 +3,8 @@
 
 namespace Jeekens\Event;
 
+use Exception;
+
 /**
  * Class Event
  *
@@ -113,23 +115,50 @@ class Event implements EventInterface
 }
 
     /**
-     * Stops the event preventing propagation.
      *
-     * ```php
+     * 停止事件
+     *
      * if ($event->isCancelable()) {
      *     $event->stop();
      * }
-     * ```
+     *
+     * @return EventInterface
+     *
+     * @throws Exception
      */
-    public function stop() -> <EventInterface >
+    public function stop(): EventInterface
     {
-        if unlikely !this->cancelable {
-        throw new Exception("Trying to cancel a non-cancelable event");
+        if (!$this->cancelable) {
+            throw new Exception('Trying to cancel a non-cancelable event');
+        }
+
+        $this->stopped = true;
+
+        return $this;
     }
 
-        let this->stopped = true;
+    /**
+     * @return string
+     */
+    public function getType()
+    {
+        return $this->type;
+    }
 
-        return this;
+    /**
+     * @return mixed
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getSource()
+    {
+        return $this->source;
     }
 
 }

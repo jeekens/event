@@ -46,4 +46,9 @@ interface EventInterface
      */
     public function stop(): EventInterface;
 
+    /**
+     * @return mixed
+     */
+    public function getSource();
+
 }
