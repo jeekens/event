@@ -7,7 +7,6 @@ namespace Jeekens\Event;
 use Closure;
 use Exception;
 use SplPriorityQueue;
-use function is_array;
 use function is_object;
 use function is_string;
 use function strpos;
@@ -146,9 +145,7 @@ class Manager implements ManagerInterface
         if ($type === null) {
             $this->events = null;
         } else {
-            if (isset($this->events[$type])) {
-                unset($this->events[$type]);
-            }
+            unset($this->events[$type]);
         }
     }
 
@@ -179,7 +176,7 @@ class Manager implements ManagerInterface
 
         $events = $this->events;
 
-        if (!is_array($events)) {
+        if (empty($events)) {
             return null;
         }
 
@@ -192,7 +189,7 @@ class Manager implements ManagerInterface
         $eventName = $eventParts[1];
         $status = null;
 
-        if ($this->collect) {
+        if ($this->isCollecting()) {
             $this->responses = null;
         }
 
@@ -214,7 +211,6 @@ class Manager implements ManagerInterface
     }
 
     /**
-     * 埋点队列，订阅者广播
      *
      * @param SplPriorityQueue $queue
      * @param EventInterface $event
@@ -236,9 +232,7 @@ class Manager implements ManagerInterface
         $source = $event->getSource();
         $data = $event->getData();
         $cancelable = $event->isCancelable();
-        $collect = $this->collect;
-
-
+        $collect = $this->isCollecting();
         $iterator = clone $queue;
         $iterator->top();
 
@@ -250,7 +244,6 @@ class Manager implements ManagerInterface
             if (!is_object($handler)) {
                 continue;
             }
-
 
             if ($handler instanceof Closure) {
                 $status = call_user_func_array($handler, [$event, $source, $data]);
@@ -276,7 +269,7 @@ class Manager implements ManagerInterface
     }
 
     /**
-     * 返回所有的时间监听者
+     * 返回所有的事件订阅者
      *
      * @param string $type
      *
