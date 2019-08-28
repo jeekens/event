@@ -95,7 +95,7 @@ class Event implements EventInterface
      *
      * @return EventInterface
      */
-    public function setData($data = null) : EventInterface
+    public function setData($data = null): EventInterface
     {
         $this->data = $data;
 
@@ -108,11 +108,11 @@ class Event implements EventInterface
      * @return EventInterface
      */
     public function setType(string $type): EventInterface
-{
-    $this->type = $type;
+    {
+        $this->type = $type;
 
-    return $this;
-}
+        return $this;
+    }
 
     /**
      *
