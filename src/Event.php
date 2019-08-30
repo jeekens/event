@@ -4,6 +4,7 @@
 namespace Jeekens\Event;
 
 use Exception;
+use Jeekens\Std\Event\EventInterface;
 
 /**
  * Class Event
@@ -42,11 +43,11 @@ class Event implements EventInterface
     protected $stopped = false;
 
     /**
-     * 事件类型
+     * 事件名称
      *
      * @var string
      */
-    protected $type;
+    protected $name;
 
     /**
      * Event constructor.
@@ -56,9 +57,9 @@ class Event implements EventInterface
      * @param null $data
      * @param bool $cancelable
      */
-    public function __construct(string $type, $source, $data = null, bool $cancelable = true)
+    public function __construct(string $name, $source, $data = null, bool $cancelable = true)
     {
-        $this->type = $type;
+        $this->name = $name;
         $this->source = $source;
         $this->data = $data;
         $this->cancelable = $cancelable;
@@ -107,9 +108,9 @@ class Event implements EventInterface
      *
      * @return EventInterface
      */
-    public function setType(string $type): EventInterface
+    public function setName(string $name): EventInterface
     {
-        $this->type = $type;
+        $this->name = $name;
 
         return $this;
     }
@@ -140,9 +141,9 @@ class Event implements EventInterface
     /**
      * @return string
      */
-    public function getType()
+    public function getName()
     {
-        return $this->type;
+        return $this->name;
     }
 
     /**

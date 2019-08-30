@@ -4,12 +4,14 @@
 namespace Jeekens\Event;
 
 
-use Closure;
 use Exception;
+use Jeekens\Std\Event\EventInterface;
+use Jeekens\Std\Event\ManagerInterface;
 use SplPriorityQueue;
+use function call;
+use function is_callable;
 use function is_object;
-use function is_string;
-use function strpos;
+use function method_exists;
 
 /**
  * Class Manager
@@ -18,21 +20,6 @@ use function strpos;
  */
 class Manager implements ManagerInterface
 {
-
-    /**
-     * 默认优先级
-     */
-    const DEFAULT_PRIORITY = 100;
-
-    /**
-     * @var bool
-     */
-    protected $collect = false;
-
-    /**
-     * @var bool
-     */
-    protected $enablePriorities = false;
 
     /**
      * @var SplPriorityQueue[]
@@ -47,7 +34,8 @@ class Manager implements ManagerInterface
     /**
      * 订阅事件
      *
-     * @param string $eventType
+     * @param string $eventName
+     * @param string $subName
      * @param $handler
      * @param int $priority
      *
@@ -55,114 +43,67 @@ class Manager implements ManagerInterface
      *
      * @throws Exception
      */
-    public function attach(string $eventType, $handler, int $priority = self::DEFAULT_PRIORITY)
+    public function subscribe(string $eventName, string $subName, $handler, int $priority = self::DEFAULT_PRIORITY)
     {
-        if (!is_object($handler)) {
-            throw new Exception('Event handler must be an Object');
+        if (!(is_object($handler) && !method_exists($handler, 'handler')) && !is_callable($handler)) {
+            throw new Exception('Event handler error.');
         }
 
-        if (!isset($this->events[$eventType])) {
+        if (!isset($this->events[$eventName])) {
 
             $priorityQueue = new SplPriorityQueue();
             $priorityQueue->setExtractFlags(SplPriorityQueue::EXTR_DATA);
-            $this->events[$eventType] = $priorityQueue;
+            $this->events[$eventName] = $priorityQueue;
 
         } else {
-            $priorityQueue = $this->events[$eventType];
+            $priorityQueue = $this->events[$eventName];
         }
 
-        if (!$this->enablePriorities) {
-            $priority = self::DEFAULT_PRIORITY;
-        }
-
-        $priorityQueue->insert($handler, $priority);
+        $priorityQueue->insert(['name' => $subName, 'handler' => $handler,], $priority);
     }
 
     /**
-     * 返回事件订阅优先级的开启状态
+     * 移除事件上的订阅者
      *
-     * @return bool
-     */
-    public function arePrioritiesEnabled(): bool
-    {
-        return $this->enablePriorities;
-    }
-
-    /**
-     * 设置是否收集事件执行结果
-     *
-     * @param bool $collect
-     */
-    public function collectResponses(bool $collect)
-    {
-        $this->collect = $collect;
-    }
-
-    /**
-     *
-     * @param string $eventType
-     * @param $handler
+     * @param string $eventName
+     * @param string|null $subName
      *
      * @return mixed|void
      *
      * @throws Exception
      */
-    public function detach(string $eventType, $handler)
+    public function rmSubscribe(string $eventName, ?string $subName = null)
     {
-
-        if (!is_object($handler)) {
-            throw new Exception('Event handler must be an Object');
-        }
-
-        if (isset($this->events[$eventType]) && $priorityQueue = $this->events[$eventType]) {
+        if (isset($this->events[$eventName]) && $priorityQueue = $this->events[$eventName]) {
 
             $newPriorityQueue = new SplPriorityQueue();
             $newPriorityQueue->setExtractFlags(SplPriorityQueue::EXTR_DATA);
-            $priorityQueue->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
-            $priorityQueue->top();
 
-            while ($priorityQueue->valid()) {
-                $data = $priorityQueue->current();
+            if ($subName === null) {
+                $this->events[$eventName] = $newPriorityQueue;
+            } else {
+                $priorityQueue->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+                $priorityQueue->top();
 
-                $priorityQueue->next();
+                while ($priorityQueue->valid()) {
+                    $data = $priorityQueue->current();
 
-                if ($data['data'] !== $handler) {
-                    $newPriorityQueue->insert($data['data'], $data['priority']);
+                    $priorityQueue->next();
+
+                    if ($data['data']['name'] !== $subName) {
+                        $newPriorityQueue->insert($data['data'], $data['priority']);
+                    }
                 }
+
+                $this->events[$eventName] = $newPriorityQueue;
             }
-
-            $this->events[$eventType] = $newPriorityQueue;
         }
-    }
-
-    /**
-     * @param string|null $type
-     *
-     * @return mixed|void
-     */
-    public function detachAll(?string $type = null)
-    {
-        if ($type === null) {
-            $this->events = null;
-        } else {
-            unset($this->events[$type]);
-        }
-    }
-
-    /**
-     * 是否开启订阅优先级
-     *
-     * @param bool $enablePriorities
-     */
-    public function enablePriorities(bool $enablePriorities)
-    {
-        $this->enablePriorities = $enablePriorities;
     }
 
     /**
      * 埋点
      *
-     * @param string $eventType
+     * @param string $eventName
      * @param $source
      * @param null $data
      * @param bool $cancelable
@@ -171,39 +112,22 @@ class Manager implements ManagerInterface
      *
      * @throws Exception
      */
-    public function fire(string $eventType, $source, $data = null, bool $cancelable = true)
+    public function trigger(string $eventName, $source = null, $data = null,  bool $cancelable = true)
     {
-
         $events = $this->events;
 
         if (empty($events)) {
             return null;
         }
 
-        if (strpos($eventType, ':')) {
-            throw new Exception('Invalid event type ' . $eventType);
-        }
-
-        $eventParts = explode(':', $eventType);
-        $type = $eventParts[0];
-        $eventName = $eventParts[1];
         $status = null;
-
-        if ($this->isCollecting()) {
-            $this->responses = null;
-        }
+        $this->responses = null;
 
         $event = new Event($eventName, $source, $data, $cancelable);
 
-        if (($fireEvents = $events[$type] ?? null)) {
+        if (($fireEvents = $events[$eventName] ?? null)) {
             if (is_object($fireEvents)) {
-                $status = $this->fireQueue($fireEvents, $event);
-            }
-        }
-
-        if (($fireEvents = $events[$eventType] ?? null)) {
-            if (is_object($fireEvents)) {
-                $status = $this->fireQueue($fireEvents, $event);
+                $status = $this->fireTrigger($fireEvents, $event);
             }
         }
 
@@ -219,20 +143,19 @@ class Manager implements ManagerInterface
      *
      * @throws Exception
      */
-    protected function fireQueue(SplPriorityQueue $queue, EventInterface $event)
+    protected function fireTrigger(SplPriorityQueue $queue, EventInterface $event)
     {
 
         $status = null;
-        $eventName = $event->getType();
+        $eventName = $event->getName();
 
-        if (is_string($eventName)) {
-            throw new Exception('The event type not valid');
+        if (empty($eventName)) {
+            throw new Exception('The event name not valid.');
         }
 
         $source = $event->getSource();
         $data = $event->getData();
         $cancelable = $event->isCancelable();
-        $collect = $this->isCollecting();
         $iterator = clone $queue;
         $iterator->top();
 
@@ -241,22 +164,7 @@ class Manager implements ManagerInterface
             $handler = $iterator->current();
             $iterator->next();
 
-            if (!is_object($handler)) {
-                continue;
-            }
-
-            if ($handler instanceof Closure) {
-                $status = call_user_func_array($handler, [$event, $source, $data]);
-            } else {
-                if (!method_exists($handler, $eventName)) {
-                    continue;
-                }
-                $status = $handler->{$eventName}($event, $source, $data);
-            }
-
-            if ($collect) {
-                $this->responses[] = $status;
-            }
+            $this->responses[] = $this->handle($handler['handler'], $event, $source, $data);
 
             if ($cancelable) {
                 if ($event->isStopped()) {
@@ -269,31 +177,53 @@ class Manager implements ManagerInterface
     }
 
     /**
+     *
+     * @param $handler
+     * @param $event
+     * @param $source
+     * @param $data
+     *
+     * @return mixed
+     */
+    protected function handle($handler, $event, $source, $data)
+    {
+        if (is_object($handler) && method_exists($handler, 'handler')) {
+            return call([$handler, 'handler'], $event, $source, $data);
+        }
+
+        return call($handler, $event, $source, $data);
+    }
+
+    /**
      * 返回所有的事件订阅者
      *
-     * @param string $type
+     * @param string|null $eventName
      *
      * @return array
      */
-    public function getListeners(string $type): array
+    public function getSubscriber(?string $eventName = null): ?array
     {
 
-        if (!isset($this->events[$type])) {
+        if (empty($eventName)) {
+            return $this->events;
+        }
+
+        if (!isset($this->events[$eventName])) {
             return [];
         }
 
-        $listeners = [];
-        $fireEvents = $this->events[$type];
+        $subscriber = [];
+        $fireEvents = $this->events[$eventName];
         $priorityQueue = clone $fireEvents;
 
         $priorityQueue->top();
 
         while ($priorityQueue->valid()) {
-            $listeners[] = $priorityQueue->current();
+            $subscriber[] = $priorityQueue->current();
             $priorityQueue->next();
         }
 
-        return $listeners;
+        return $subscriber;
     }
 
     /**
@@ -309,23 +239,13 @@ class Manager implements ManagerInterface
     /**
      * 判断事件是否存在订阅者
      *
-     * @param string $type
+     * @param string $eventName
      *
      * @return bool
      */
-    public function hasListeners(string $type): bool
+    public function hasSubscriber(string $eventName): bool
     {
-        return isset($this->events[$type]);
-    }
-
-    /**
-     * 是否收集事件处理结果
-     *
-     * @return bool
-     */
-    public function isCollecting(): bool
-    {
-        return $this->collect;
+        return isset($this->events[$eventName]);
     }
 
 }
