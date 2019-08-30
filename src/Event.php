@@ -4,7 +4,6 @@
 namespace Jeekens\Event;
 
 use Exception;
-use Jeekens\Std\Event\EventInterface;
 
 /**
  * Class Event

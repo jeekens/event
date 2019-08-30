@@ -4,14 +4,18 @@
 namespace Jeekens\Event;
 
 
+use Closure;
 use Exception;
-use Jeekens\Std\Event\EventInterface;
-use Jeekens\Std\Event\ManagerInterface;
+use RuntimeException;
 use SplPriorityQueue;
-use function call;
+use function explode;
+use function function_exists;
+use function is_array;
 use function is_callable;
 use function is_object;
+use function is_string;
 use function method_exists;
+use function strpos;
 
 /**
  * Class Manager
@@ -150,10 +154,41 @@ class Manager implements ManagerInterface
     protected function handle($handler, $event, $source, $data)
     {
         if (is_object($handler) && method_exists($handler, 'handler')) {
-            return call([$handler, 'handler'], $event, $source, $data);
+            return $this->call([$handler, 'handler'], $event, $source, $data);
         }
 
-        return call($handler, $event, $source, $data);
+        return $this->call($handler, $event, $source, $data);
+    }
+
+    /**
+     * @param $callback
+     * @param mixed ...$args
+     *
+     * @return mixed
+     */
+    protected function call($callback, ...$args)
+    {
+        if (is_string($callback)) {
+            // className::method
+            if (strpos($callback, '::') > 0) {
+                $callback = explode('::', $callback, 2);
+                // function
+            } elseif (function_exists($callback)) {
+                return $callback(...$args);
+            }
+        } elseif ($callback instanceof Closure) {
+            return $callback(...$args);
+        } elseif (is_object($callback) && method_exists($callback, '__invoke')) {
+            return $callback(...$args);
+        }
+
+        if (is_array($callback)) {
+            [$obj, $method] = $callback;
+
+            return is_object($obj) ? $obj->$method(...$args) : $obj::$method(...$args);
+        }
+
+        throw new RuntimeException('Callback must be callable.');
     }
 
     /**
