@@ -43,7 +43,7 @@ class Manager implements ManagerInterface
      *
      * @throws Exception
      */
-    public function subscribe(string $eventName, string $subName, $handler, int $priority = self::DEFAULT_PRIORITY)
+    public function subscribe(string $eventName, $handler, int $priority = self::DEFAULT_PRIORITY)
     {
         if (!(is_object($handler) && !method_exists($handler, 'handler')) && !is_callable($handler)) {
             throw new Exception('Event handler error.');
@@ -59,45 +59,7 @@ class Manager implements ManagerInterface
             $priorityQueue = $this->events[$eventName];
         }
 
-        $priorityQueue->insert(['name' => $subName, 'handler' => $handler,], $priority);
-    }
-
-    /**
-     * 移除事件上的订阅者
-     *
-     * @param string $eventName
-     * @param string|null $subName
-     *
-     * @return mixed|void
-     *
-     * @throws Exception
-     */
-    public function rmSubscribe(string $eventName, ?string $subName = null)
-    {
-        if (isset($this->events[$eventName]) && $priorityQueue = $this->events[$eventName]) {
-
-            $newPriorityQueue = new SplPriorityQueue();
-            $newPriorityQueue->setExtractFlags(SplPriorityQueue::EXTR_DATA);
-
-            if ($subName === null) {
-                $this->events[$eventName] = $newPriorityQueue;
-            } else {
-                $priorityQueue->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
-                $priorityQueue->top();
-
-                while ($priorityQueue->valid()) {
-                    $data = $priorityQueue->current();
-
-                    $priorityQueue->next();
-
-                    if ($data['data']['name'] !== $subName) {
-                        $newPriorityQueue->insert($data['data'], $data['priority']);
-                    }
-                }
-
-                $this->events[$eventName] = $newPriorityQueue;
-            }
-        }
+        $priorityQueue->insert($handler, $priority);
     }
 
     /**
@@ -164,7 +126,7 @@ class Manager implements ManagerInterface
             $handler = $iterator->current();
             $iterator->next();
 
-            $this->responses[] = $this->handle($handler['handler'], $event, $source, $data);
+            $this->responses[] = $this->handle($handler, $event, $source, $data);
 
             if ($cancelable) {
                 if ($event->isStopped()) {
